@@ -1,12 +1,10 @@
 {
   "name": "donaldtips-bot",
   "version": "1.0.0",
-  "description": "Bot Telegram para envio de tips esportivas",
-  "main": "index.js",
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "setup-webhook": "node setup-webhook.js"
   },
   "dependencies": {
     "dotenv": "^16.3.1",
@@ -16,9 +14,5 @@
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
-  },
-  "engines": {
-    "node": ">=18.0.0",
-    "npm": ">=9.0.0"
   }
 }
