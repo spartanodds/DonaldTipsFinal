@@ -1,80 +1,132 @@
 const { google } = require('googleapis');
 const sheets = google.sheets('v4');
 
+// Configuração robusta de autenticação
 async function getAuth() {
   try {
-    if (!process.env.GOOGLE_CREDENTIALS_JSON) {
-      throw new Error('Variável GOOGLE_CREDENTIALS_JSON não definida');
+    // Railway com variáveis de ambiente
+    if (process.env.RAILWAY_ENVIRONMENT) {
+      console.log('Ambiente Railway detectado');
+
+      if (process.env.GOOGLE_CREDENTIALS_JSON) {
+        console.log('Usando credenciais JSON do Railway');
+        const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON);
+        return new google.auth.GoogleAuth({
+          credentials,
+          scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+        });
+      }
+
+      if (process.env.GOOGLE_API_KEY) {
+        console.log('Usando API Key simples');
+        return process.env.GOOGLE_API_KEY;
+      }
     }
 
-    console.log('Processando credenciais...');
-    const credentialsJson = process.env.GOOGLE_CREDENTIALS_JSON
-      .replace(/\\"/g, '"')  // Remove escapes de aspas
-      .replace(/\\n/g, '\n'); // Converte \\n para quebras reais
-
-    const credentials = JSON.parse(credentialsJson);
-    
-    return new google.auth.GoogleAuth({
-      credentials: {
-        ...credentials,
-        private_key: credentials.private_key.replace(/\\n/g, '\n')
-      },
+    // Desenvolvimento local
+    console.log('Tentando carregar credenciais localmente');
+    const auth = new google.auth.GoogleAuth({
+      keyFile: './credentials.json',
       scopes: ['https://www.googleapis.com/auth/spreadsheets'],
     });
+    return auth;
 
   } catch (error) {
-    console.error('🔥 ERRO CRÍTICO NA AUTENTICAÇÃO:', {
+    console.error('Falha na configuração de autenticação:', error);
+    throw error;
+  }
+}
+
+// Lista os campeonatos (coluna A)
+async function listChampionships() {
+  let auth;
+  try {
+    console.log('Iniciando listChampionships...');
+    auth = await getAuth();
+
+    const request = {
+      spreadsheetId: process.env.SHEET_ID,
+      range: 'Dados!A2:A',
+    };
+
+    if (typeof auth === 'string') {
+      request.key = auth;
+    } else {
+      request.auth = await auth.getClient();
+    }
+
+    const response = await sheets.spreadsheets.values.get(request);
+    const rows = response.data.values || [];
+    console.log(`Total de linhas recebidas: ${rows.length}`);
+
+    const campeonatos = [...new Set(
+      rows.map(row => row[0]?.toString().trim()).filter(Boolean)
+    )];
+
+    console.log(`Campeonatos únicos encontrados: ${campeonatos.length}`);
+    return campeonatos;
+
+  } catch (error) {
+    console.error('Erro detalhado em listChampionships:', {
       message: error.message,
-      dica: 'Verifique se o JSON está minificado corretamente',
-      stack: error.stack
+      stack: error.stack,
+      authType: typeof auth,
+      sheetId: process.env.SHEET_ID,
+      errorDetails: error.response?.data
+    });
+    throw new Error('Falha ao acessar a planilha');
+  }
+}
+
+// Busca as dicas de um campeonato
+async function getTipsByDate(campeonato) {
+  let auth;
+  try {
+    console.log(`Buscando dicas para: ${campeonato}`);
+    auth = await getAuth();
+
+    const request = {
+      spreadsheetId: process.env.SHEET_ID,
+      range: 'Dados!A2:L',
+    };
+
+    if (typeof auth === 'string') {
+      request.key = auth;
+    } else {
+      request.auth = await auth.getClient();
+    }
+
+    const response = await sheets.spreadsheets.values.get(request);
+    const rows = response.data.values || [];
+    console.log(`Total de jogos encontrados: ${rows.length}`);
+
+    return rows
+      .filter(row => row[0]?.toString().trim() === campeonato)
+      .map(row => ({
+        'Campeonato': row[0],
+        'Data (Brasília)': row[1],
+        'Hora (Brasília)': row[2],
+        'Time Casa': row[3],
+        'Time Fora': row[4],
+        'Odd Casa': row[5],
+        'Odd Empate': row[6],
+        'Odd Fora': row[7],
+        'Prob. Casa (%)': row[8],
+        'Prob. Empate (%)': row[9],
+        'Prob. Fora (%)': row[10],
+        'Aposta Sugerida': row[11]
+      }));
+
+  } catch (error) {
+    console.error('Erro detalhado em getTipsByDate:', {
+      message: error.message,
+      stack: error.stack,
+      campeonato,
+      authType: typeof auth,
+      errorDetails: error.response?.data
     });
     throw error;
   }
 }
-async function listChampionships() {
-  const auth = await getAuth();
-  const request = {
-    spreadsheetId: process.env.SHEET_ID,
-    range: 'Dados!A2:A',
-    auth: await auth.getClient()
-  };
 
-  const response = await sheets.spreadsheets.values.get(request);
-  const rows = response.data.values || [];
-  const campeonatos = [...new Set(
-    rows.map(row => row[0]?.toString().trim()).filter(Boolean)
-  )];
-
-  return campeonatos;
-}
-
-async function getTipsByDate(campeonato) {
-  const auth = await getAuth();
-  const request = {
-    spreadsheetId: process.env.SHEET_ID,
-    range: 'Dados!A2:Z',
-    auth: await auth.getClient()
-  };
-
-  const response = await sheets.spreadsheets.values.get(request);
-  const rows = response.data.values || [];
-
-  return rows
-    .filter(row => row[0]?.toString().trim() === campeonato)
-    .map(row => ({
-      'Campeonato': row[0],
-      'Data (Brasília)': row[1],
-      'Hora (Brasília)': row[2],
-      'Time Casa': row[3],
-      'Time Fora': row[4],
-      'Prob. Casa (%)': row[5],
-      'Odd Casa': row[6],
-      'Prob. Empate (%)': row[7],
-      'Odd Empate': row[8],
-      'Prob. Fora (%)': row[9],
-      'Odd Fora': row[10],
-      'Aposta Sugerida': row[11]
-    }));
-}
-
-module.exports = { listChampionships, getTipsByDate };
+module.exports = { getTipsByDate, listChampionships };
