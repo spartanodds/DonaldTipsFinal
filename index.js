@@ -5,17 +5,85 @@ const { getTipsByDate, listChampionships } = require('./sheets');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
-
-// Configuração do Bot
 const bot = new TelegramBot(process.env.BOT_TOKEN, {
   polling: process.env.NODE_ENV === 'development'
 });
 
-// Middlewares
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// ======================================
+// CONFIGURAÇÃO DE MENSAGENS DONALDBET
+// ======================================
+const MENSAGENS = {
+  SAUDACAO: `🎰 *Bem-vindo a donaldbet signals !* 🎲\n\n` +
+    `⚽ *Sinais Esportivos Premium* + 🎮 *Cassino ao Vivo*\n\n` +
+    `🔹 *Sobre a DonaldBet:*\n` +
+    `A casa de apostas mais completa do Brasil! Oferecemos:\n\n` +
+    `• 🎯 *Sinais Esportivos* com assertividade\n` +
+    `• 🎰 *Cassino Ao Vivo* com dealers exclusivas\n` +
+    `• 🚀 *Crash & Aviator* com multiplicadores altíssimos\n` +
+    `• ♠️ *Roleta VIP* com mesas high-stakes\n\n` +
+    `💎 *Ofertas Exclusivas:*\n` +
+    `- Bônus e campanhas diárias\n` +
+    `- Cashback diário \n` +
+    `- Promoções semanais\n\n` +
+    `👉 *Acesse agora:* [DonaldBet Oficial](https://donald.bet.br)\n\n` +
+    `*Escolha uma opção abaixo:*`,
 
-// Webhook Production
+  BOTOES_INICIAIS: {
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: "⚽ Ver Sinais Esportivos", callback_data: "sinais_esportivos" },
+          { text: "🎰 Acessar Cassino", url: "https://donald.bet.br" }
+        ],
+        [
+          { text: "🚀 Jogar Crash", url: "https://donald.bet.br" },
+          { text: "♠️ Roleta VIP", url: "https://donald.bet.br" }
+        ]
+      ]
+    }
+  },
+
+  SELECAO_CAMPEONATO: (campeonatos) => ({
+    texto: `⚽ *SINAIS ESPORTIVOS - ESCOLHA O CAMPEONATO* ⚽\n\n` +
+      `Selecione abaixo a competição que deseja receber nossas análises premium:`,
+    
+    botoes: {
+      reply_markup: {
+        inline_keyboard: [
+          ...campeonatos.map(c => [{ text: c, callback_data: c }]),
+          [
+            { text: "🎰 Voltar ao Cassino", url: "https://donald.bet.br" },
+            { text: "💎 Ofertas Exclusivas", url: "https://donald.bet.br" }
+          ]
+        ]
+      }
+    }
+  }),
+
+  DICA: (dica) => `✨ *DONALDBET SIGNAL* ✨\n\n` +
+    `🏆 *${dica['Campeonato']}*\n` +
+    `📅 ${dica['Data (Brasília)']} | ⏰ ${dica['Hora (Brasília)']}\n\n` +
+    `🔵 *${dica['Time Casa']}* vs *${dica['Time Fora']}*\n\n` +
+    `📊 *ANÁLISE ESTATÍSTICA*\n` +
+    `▸ Prob. Casa: ${dica['Prob. Casa (%)']}% | Odd: ${dica['Odd Casa']}\n` +
+    `▸ Prob. Empate: ${dica['Prob. Empate (%)']}% | Odd: ${dica['Odd Empate']}\n` +
+    `▸ Prob. Fora: ${dica['Prob. Fora (%)']}% | Odd: ${dica['Odd Fora']}\n\n` +
+    `💎 *RECOMENDAÇÃO PREMIUM*\n` +
+    `👉 ${dica['Aposta Sugerida']} 👈\n\n` +
+    `🎰 *Quer mais emoção?* Acesse nosso [Cassino Ao Vivo](https://donald.bet.br)\n\n` +
+    `⚠️ *Jogue com responsabilidade*\n` +
+    `🔞 *Apenas para maiores de 18 anos*\n\n` +
+    `🏅 *donaldbet onde todo mundo joga!`,
+
+  ERRO: `❌ *Ocorreu um erro*\n\n` +
+    `Nossos sistemas estão passando por manutenção.\n` +
+    `Por favor, tente novamente em alguns minutos.\n\n` +
+    `🎰 Aproveite para jogar no nosso [Cassino](https://donald.bet.br) enquanto isso!`
+};
+
+// ======================================
+// CONFIGURAÇÃO DO WEBHOOK
+// ======================================
 if (process.env.NODE_ENV === 'production') {
   const webhookUrl = `${process.env.APP_URL}/bot${process.env.BOT_TOKEN}`;
   
@@ -24,65 +92,40 @@ if (process.env.NODE_ENV === 'production') {
     .catch(err => console.error('❌ Erro no webhook:', err));
 
   app.post(`/bot${process.env.BOT_TOKEN}`, (req, res) => {
-    if (!req.body) return res.status(400).send('Bad Request');
     bot.processUpdate(req.body);
     res.sendStatus(200);
   });
-
-  app.get(`/bot${process.env.BOT_TOKEN}`, (req, res) => {
-    res.status(405).json({ error: 'Método não permitido' });
-  });
 }
 
-// Health Check
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'online',
-    bot: 'DonaldTips',
-    version: '1.0'
-  });
-});
+// ======================================
+// HANDLERS PRINCIPAIS
+// ======================================
 
 // Comando /start
 bot.onText(/\/start/, (msg) => {
-  const welcomeMsg = `🏆 <b>DonaldTips - Seu Assistente de Apostas</b>\n\n`
-    + `Digite <code>quais apostas para hoje</code> para ver nossas dicas!\n\n`
-    + `📊 Dados atualizados em tempo real`;
-  
-  bot.sendMessage(msg.chat.id, welcomeMsg, { parse_mode: 'HTML' });
+  bot.sendMessage(msg.chat.id, MENSAGENS.SAUDACAO, {
+    parse_mode: 'Markdown',
+    disable_web_page_preview: false,
+    reply_markup: MENSAGENS.BOTOES_INICIAIS.reply_markup
+  });
 });
 
 // Handler de mensagens
 bot.on('message', async (msg) => {
   const text = msg.text?.toLowerCase();
-  if (!text?.includes('quais apostas para hoje')) return;
+  if (!text?.includes('sinais')) return;
 
   try {
-    const loadingMsg = await bot.sendMessage(msg.chat.id, '🔍 Buscando campeonatos disponíveis...');
-    
     const campeonatos = await listChampionships();
-    if (!campeonatos.length) {
-      await bot.editMessageText('⚠️ Nenhum campeonato encontrado hoje', {
-        chat_id: msg.chat.id,
-        message_id: loadingMsg.message_id
-      });
-      return;
-    }
-
-    const keyboard = campeonatos.map(c => [{ 
-      text: c, 
-      callback_data: c 
-    }]);
-
-    await bot.editMessageText('⚽ <b>Selecione um campeonato:</b>', {
-      chat_id: msg.chat.id,
-      message_id: loadingMsg.message_id,
-      parse_mode: 'HTML',
-      reply_markup: { inline_keyboard: keyboard }
+    const { texto, botoes } = MENSAGENS.SELECAO_CAMPEONATO(campeonatos);
+    
+    bot.sendMessage(msg.chat.id, texto, {
+      parse_mode: 'Markdown',
+      reply_markup: botoes.reply_markup
     });
   } catch (error) {
-    console.error('Erro ao listar campeonatos:', error);
-    bot.sendMessage(msg.chat.id, '❌ Erro ao buscar campeonatos. Tente novamente mais tarde.');
+    console.error('Erro:', error);
+    bot.sendMessage(msg.chat.id, MENSAGENS.ERRO, { parse_mode: 'Markdown' });
   }
 });
 
@@ -92,48 +135,34 @@ bot.on('callback_query', async (query) => {
   
   try {
     await bot.answerCallbackQuery(query.id);
-    const loadingMsg = await bot.sendMessage(chatId, '⏳ Buscando dicas...');
-
     const dicas = await getTipsByDate(query.data);
-    if (!dicas.length) {
-      await bot.editMessageText(`ℹ️ Nenhuma dica disponível para ${query.data} hoje`, {
-        chat_id: chatId,
-        message_id: loadingMsg.message_id
-      });
-      return;
-    }
-
-    // Envia cada dica como mensagem separada
+    
     for (const dica of dicas) {
-      const message = `🏆 <b>${dica['Campeonato']}</b>\n\n`
-        + `📅 <b>Data:</b> ${dica['Data (Brasília)']} | ⏰ ${dica['Hora (Brasília)']}\n`
-        + `⚽ <b>Jogo:</b> ${dica['Time Casa']} vs ${dica['Time Fora']}\n\n`
-        + `💰 <b>Odds:</b>\n`
-        + `• Casa: ${dica['Odd Casa']}\n`
-        + `• Empate: ${dica['Odd Empate']}\n`
-        + `• Fora: ${dica['Odd Fora']}\n\n`
-        + `🎯 <b>Aposta Recomendada:</b> <u>${dica['Aposta Sugerida']}</u>\n`
-        + `📊 <b>Probabilidades:</b>\n`
-        + `• Casa: ${dica['Prob. Casa (%)']}%\n`
-        + `• Empate: ${dica['Prob. Empate (%)']}%\n`
-        + `• Fora: ${dica['Prob. Fora (%)']}%`;
-
-      await bot.sendMessage(chatId, message, { 
-        parse_mode: 'HTML',
+      await bot.sendMessage(chatId, MENSAGENS.DICA(dica), {
+        parse_mode: 'Markdown',
         disable_web_page_preview: true
       });
-      await new Promise(resolve => setTimeout(resolve, 500)); // Delay entre mensagens
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
-
-    await bot.deleteMessage(chatId, loadingMsg.message_id);
   } catch (error) {
-    console.error('Erro ao buscar dicas:', error);
-    bot.sendMessage(chatId, '❌ Erro ao carregar as dicas. Tente novamente.');
+    console.error('Erro:', error);
+    bot.sendMessage(chatId, MENSAGENS.ERRO, { parse_mode: 'Markdown' });
   }
 });
 
-// Inicia o servidor
+// ======================================
+// INICIALIZAÇÃO DO SERVIDOR
+// ======================================
 app.listen(PORT, () => {
   console.log(`🚀 Bot iniciado na porta ${PORT}`);
   console.log(`🔧 Modo: ${process.env.NODE_ENV || 'development'}`);
+  
+  // Configura botão permanente
+  bot.setChatMenuButton({
+    menu_button: {
+      type: 'web_app',
+      text: '🎰 Acessar DonaldBet',
+      web_app: { url: 'https://donald.bet.br' }
+    }
+  }).catch(console.error);
 });
