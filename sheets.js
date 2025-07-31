@@ -26,7 +26,7 @@ async function listChampionships() {
     });
 
     const rows = response.data.values || [];
-    return [...new Set(rows.map(row => row[0]?.toString().trim()).filter(Boolean)];
+    return [...new Set(rows.map(row => row[0]?.toString().trim()).filter(Boolean))];
     
   } catch (error) {
     console.error('Erro ao listar campeonatos:', error);
@@ -67,7 +67,7 @@ async function getTipsByDate(campeonato) {
   }
 }
 
-// Exportação explícita
+// Exportação explícita e correta
 module.exports = {
   listChampionships,
   getTipsByDate
