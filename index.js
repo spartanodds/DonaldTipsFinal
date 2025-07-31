@@ -1,3 +1,5 @@
+process.env.NODE_ENV = 'production'; // Remova depois de testar
+
 require('dotenv').config();
 const express = require('express');
 const TelegramBot = require('node-telegram-bot-api');
@@ -14,14 +16,20 @@ const bot = new TelegramBot(process.env.BOT_TOKEN, {
 
 // Configuração do Webhook para produção
 if (process.env.NODE_ENV === 'production') {
-  bot.setWebHook(`${process.env.APP_URL}/bot${process.env.BOT_TOKEN}`);
+  const webhookUrl = `${process.env.APP_URL}/bot${process.env.BOT_TOKEN}`;
   
+  // Remove webhook antigo e configura novo
+  bot.deleteWebHook().then(() => {
+    bot.setWebHook(webhookUrl);
+    console.log(`🔄 Webhook configurado em: ${webhookUrl}`);
+  });
+
   app.post(`/bot${process.env.BOT_TOKEN}`, (req, res) => {
+    console.log("📩 Update recebido:", req.body); // Log para debug
     bot.processUpdate(req.body);
     res.sendStatus(200);
   });
 }
-
 // Health Check Endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
@@ -123,6 +131,12 @@ app.get('/', (req, res) => {
       webhook: `/bot${process.env.BOT_TOKEN}`
     }
   });
+});
+
+console.log("✅ Variáveis de ambiente:", {
+  PORT: process.env.PORT,
+  NODE_ENV: process.env.NODE_ENV,
+  BOT_TOKEN: process.env.BOT_TOKEN ? "***" : "NÃO CONFIGURADO"
 });
 
 // Inicia o servidor
