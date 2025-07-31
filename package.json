@@ -1,12 +1,11 @@
 {
-  "name": "donaldtips-bot",
+  "name": "donaldbet-bot",
   "version": "1.0.0",
-  "description": "Bot de apostas esportivas integrado com Google Sheets",
+  "description": "Bot de sinais esportivos e cassino para DonaldBet Powered By Lucas Barbosa",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js",
-    "setup-webhook": "node setup-webhook.js"
+    "dev": "nodemon index.js"
   },
   "dependencies": {
     "dotenv": "^16.3.1",
@@ -16,8 +15,5 @@
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
-  },
-  "engines": {
-    "node": ">=18.0.0"
   }
 }
