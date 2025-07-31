@@ -1,71 +1,99 @@
 const { google } = require('googleapis');
 const sheets = google.sheets('v4');
 
-// Método 1: Autenticação com Service Account (recomendado para produção)
-function getAuth() {
+// Configuração robusta de autenticação
+async function getAuth() {
   try {
-    // Verifica se temos credenciais no .env
-    if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
-      const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
-      return new google.auth.GoogleAuth({
-        credentials,
+    // Verifica se estamos no Railway com variáveis de ambiente
+    if (process.env.RAILWAY_ENVIRONMENT) {
+      console.log('Ambiente Railway detectado');
+      
+      // Método 1: Service Account via JSON
+      if (process.env.GOOGLE_CREDENTIALS_JSON) {
+        console.log('Usando credenciais JSON do Railway');
+        const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON);
+        return new google.auth.GoogleAuth({
+          credentials,
+          scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+        });
+      }
+      
+      // Método 2: API Key simples
+      if (process.env.GOOGLE_API_KEY) {
+        console.log('Usando API Key simples');
+        return process.env.GOOGLE_API_KEY;
+      }
+    }
+    
+    // Método 3: Fallback para arquivo local (desenvolvimento)
+    try {
+      console.log('Tentando carregar credenciais localmente');
+      const auth = new google.auth.GoogleAuth({
+        keyFile: './credentials.json',
         scopes: ['https://www.googleapis.com/auth/spreadsheets'],
       });
+      return auth;
+    } catch (localError) {
+      console.log('Não foi possível carregar credenciais locais');
     }
-    // Método 2: Fallback para API Key (menos seguro, mas mais simples)
-    else if (process.env.GOOGLE_API_KEY) {
-      return process.env.GOOGLE_API_KEY;
-    }
-    throw new Error('Nenhum método de autenticação configurado');
+    
+    throw new Error('Nenhum método de autenticação disponível');
+    
   } catch (error) {
-    console.error('Erro na configuração de autenticação:', error);
+    console.error('Falha na configuração de autenticação:', error);
     throw error;
   }
 }
 
+// Funções principais com tratamento de erro aprimorado
 async function listChampionships() {
+  let auth;
   try {
-    console.log('Iniciando autenticação...');
-    const auth = getAuth();
+    console.log('Iniciando listChampionships...');
+    auth = await getAuth();
     
-    console.log('Acessando planilha... ID:', process.env.SHEET_ID);
     const request = {
       spreadsheetId: process.env.SHEET_ID,
       range: 'Dados!A2:A',
     };
 
-    // Se for API Key, adiciona diretamente
     if (typeof auth === 'string') {
       request.key = auth;
+      console.log('Autenticação via API Key');
     } else {
       request.auth = await auth.getClient();
+      console.log('Autenticação via Service Account');
     }
 
+    console.log('Enviando requisição para Google Sheets...');
     const response = await sheets.spreadsheets.values.get(request);
     const rows = response.data.values || [];
-    console.log(`Total de linhas encontradas: ${rows.length}`);
+    console.log(`Total de linhas recebidas: ${rows.length}`);
 
     const campeonatos = [...new Set(
       rows.map(row => row[0]?.toString().trim()).filter(Boolean)
-    )];
+    ];
     
     console.log(`Campeonatos únicos encontrados: ${campeonatos.length}`);
     return campeonatos;
 
   } catch (error) {
-    console.error('Erro detalhado ao listar campeonatos:', {
+    console.error('Erro detalhado em listChampionships:', {
       message: error.message,
       stack: error.stack,
-      response: error.response?.data
+      authType: typeof auth,
+      sheetId: process.env.SHEET_ID,
+      errorDetails: error.response?.data
     });
-    throw new Error('Erro ao acessar a planilha. Verifique logs.');
+    throw new Error('Falha ao acessar a planilha');
   }
 }
 
 async function getTipsByDate(campeonato) {
+  let auth;
   try {
     console.log(`Buscando dicas para: ${campeonato}`);
-    const auth = getAuth();
+    auth = await getAuth();
     
     const request = {
       spreadsheetId: process.env.SHEET_ID,
@@ -100,29 +128,15 @@ async function getTipsByDate(campeonato) {
       }));
 
   } catch (error) {
-    console.error('Erro detalhado ao buscar dicas:', {
+    console.error('Erro detalhado em getTipsByDate:', {
       message: error.message,
       stack: error.stack,
-      response: error.response?.data
+      campeonato,
+      authType: typeof auth,
+      errorDetails: error.response?.data
     });
     throw error;
   }
 }
-// Adicione no final do sheets.js
-async function testConnection() {
-  try {
-    console.log('Testando conexão com Google Sheets...');
-    const campeonatos = await listChampionships();
-    console.log('Teste bem-sucedido. Campeonatos:', campeonatos);
-    return true;
-  } catch (error) {
-    console.error('Falha no teste de conexão:', error);
-    return false;
-  }
-}
 
-// Execute o teste quando o arquivo for carregado
-testConnection().then(success => {
-  console.log(success ? '✅ Conexão OK' : '❌ Falha na conexão');
-});
 module.exports = { getTipsByDate, listChampionships };
