@@ -1,6 +1,8 @@
 {
   "name": "donaldtips-bot",
   "version": "1.0.0",
+  "description": "Bot de apostas esportivas integrado com Google Sheets",
+  "main": "index.js",
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
@@ -14,5 +16,8 @@
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
