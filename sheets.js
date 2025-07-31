@@ -3,36 +3,31 @@ const sheets = google.sheets('v4');
 
 async function getAuth() {
   try {
-    // Prioridade 1: Credenciais do Railway (produção)
-    if (process.env.GOOGLE_CREDENTIALS_JSON) {
-      console.log('🔑 Usando credenciais do Railway (GOOGLE_CREDENTIALS_JSON)');
-      const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON);
+    // Aceita GOOGLE_CREDENTIALS_JSON ou GOOGLE_SERVICE_KEY (backward compatibility)
+    const credentialsJson = process.env.GOOGLE_CREDENTIALS_JSON || process.env.GOOGLE_SERVICE_KEY;
+    
+    if (credentialsJson) {
+      console.log('🔑 Usando credenciais do Railway');
+      const credentials = JSON.parse(credentialsJson);
+      credentials.private_key = credentials.private_key.replace(/\\n/g, '\n'); // Corrige quebras de linha
+      
       return new google.auth.GoogleAuth({
-        credentials: {
-          client_email: credentials.client_email,
-          private_key: credentials.private_key.replace(/\\n/g, '\n'), // Corrige quebras de linha
-        },
+        credentials,
         scopes: ['https://www.googleapis.com/auth/spreadsheets'],
       });
     }
 
-    // Prioridade 2: API Key (se aplicável)
-    if (process.env.GOOGLE_API_KEY) {
-      console.log('🔑 Usando API Key simples');
-      return process.env.GOOGLE_API_KEY;
-    }
-
-    throw new Error('❌ Nenhuma credencial válida encontrada (GOOGLE_CREDENTIALS_JSON ou GOOGLE_API_KEY)');
-
+    throw new Error('Nenhuma credencial válida encontrada (GOOGLE_CREDENTIALS_JSON ou GOOGLE_SERVICE_KEY)');
+  
   } catch (error) {
     console.error('🔥 ERRO NA AUTENTICAÇÃO:', {
       message: error.message,
-      dica: 'Verifique se GOOGLE_CREDENTIALS_JSON está definido no Railway',
+      dica: 'Verifique se GOOGLE_CREDENTIALS_JSON está definido corretamente',
+      erroOriginal: error
     });
     throw error;
   }
 }
-
 async function listChampionships() {
   const auth = await getAuth();
   const request = {
