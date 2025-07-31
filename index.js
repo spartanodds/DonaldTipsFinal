@@ -27,6 +27,12 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
 
+// Adicione este código temporariamente no seu index.js para debug:
+bot.on('message', (msg) => {
+  console.log("Mensagem recebida:", msg.text); // Verifique nos logs
+  bot.sendMessage(msg.chat.id, "Teste de resposta").catch(e => console.log("Erro ao responder:", e));
+});
+
 // Comandos do Bot
 bot.onText(/\/start/, (msg) => {
   const welcomeMessage = `👋 Seja bem-vindo ao DonaldTips!\n\n`
