@@ -1,5 +1,11 @@
 process.env.NODE_ENV = 'production'; // Remova depois de testar
 
+// Mantém o processo ativo
+process.on('SIGTERM', () => {
+  console.log('Recebido SIGTERM. Limpando recursos...');
+  setTimeout(() => process.exit(0), 5000); // Tempo para finalizar conexões
+});
+
 require('dotenv').config();
 const express = require('express');
 const TelegramBot = require('node-telegram-bot-api');
@@ -139,8 +145,15 @@ console.log("✅ Variáveis de ambiente:", {
   BOT_TOKEN: process.env.BOT_TOKEN ? "***" : "NÃO CONFIGURADO"
 });
 
-// Inicia o servidor
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
   console.log(`Modo: ${process.env.NODE_ENV || 'development'}`);
 });
+
+// Mantém o servidor ativo
+setInterval(() => {
+  if (!server.listening) {
+    console.log('Reiniciando servidor...');
+    server.listen(PORT);
+  }
+}, 10000); // Verifica a cada 10 segundos
