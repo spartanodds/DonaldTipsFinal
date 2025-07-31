@@ -82,32 +82,57 @@ const MENSAGENS = {
 };
 
 // ======================================
-// CONFIGURAÇÃO DO WEBHOOK
+// CONFIGURAÇÃO DE HEALTH CHECK
 // ======================================
-if (process.env.NODE_ENV === 'production') {
-  const webhookUrl = `${process.env.APP_URL}/bot${process.env.BOT_TOKEN}`;
-  
-  bot.setWebHook(webhookUrl)
-    .then(() => console.log(`✅ Webhook configurado em: ${webhookUrl}`))
-    .catch(err => console.error('❌ Erro no webhook:', err));
+app.get('/health', (_, res) => res.sendStatus(200));
 
-  app.post(`/bot${process.env.BOT_TOKEN}`, (req, res) => {
-    bot.processUpdate(req.body);
-    res.sendStatus(200);
-  });
-}
+// ======================================
+// CONFIGURAÇÃO DO WEBHOOK (PRODUÇÃO)
+// ======================================
+const setupWebhook = async () => {
+  if (process.env.NODE_ENV === 'production') {
+    try {
+      const webhookUrl = `${process.env.APP_URL}/bot${process.env.BOT_TOKEN}`;
+      await bot.setWebHook(webhookUrl, {
+        max_connections: 40,
+        allowed_updates: ['message', 'callback_query']
+      });
+      console.log(`✅ Webhook configurado em: ${webhookUrl}`);
+    } catch (err) {
+      console.error('❌ Falha ao configurar webhook:', err);
+      // Fallback para polling se o webhook falhar
+      bot.startPolling();
+      console.log('🔹 Modo polling ativado como fallback');
+    }
+  }
+};
 
 // ======================================
 // HANDLERS PRINCIPAIS
 // ======================================
 
+// Tratamento de erros globais
+process.on('unhandledRejection', (err) => {
+  console.error('⚠️ Erro não tratado:', err);
+});
+
+process.on('SIGTERM', () => {
+  console.log('🔻 Recebido SIGTERM - Encerrando graciosamente');
+  bot.stopPolling();
+  process.exit(0);
+});
+
 // Comando /start
-bot.onText(/\/start/, (msg) => {
-  bot.sendMessage(msg.chat.id, MENSAGENS.SAUDACAO, {
-    parse_mode: 'Markdown',
-    disable_web_page_preview: false,
-    reply_markup: MENSAGENS.BOTOES_INICIAIS.reply_markup
-  });
+bot.onText(/\/start/, async (msg) => {
+  try {
+    await bot.sendMessage(msg.chat.id, MENSAGENS.SAUDACAO, {
+      parse_mode: 'Markdown',
+      disable_web_page_preview: false,
+      reply_markup: MENSAGENS.BOTOES_INICIAIS.reply_markup
+    });
+  } catch (error) {
+    console.error('Erro no /start:', error);
+  }
 });
 
 // Handler de mensagens
@@ -119,17 +144,17 @@ bot.on('message', async (msg) => {
     const campeonatos = await listChampionships();
     const { texto, botoes } = MENSAGENS.SELECAO_CAMPEONATO(campeonatos);
     
-    bot.sendMessage(msg.chat.id, texto, {
+    await bot.sendMessage(msg.chat.id, texto, {
       parse_mode: 'Markdown',
       reply_markup: botoes.reply_markup
     });
   } catch (error) {
     console.error('Erro:', error);
-    bot.sendMessage(msg.chat.id, MENSAGENS.ERRO, { parse_mode: 'Markdown' });
+    await bot.sendMessage(msg.chat.id, MENSAGENS.ERRO, { parse_mode: 'Markdown' });
   }
 });
 
-// Handler de seleção de campeonato
+// Handler de callback (seleção de campeonato)
 bot.on('callback_query', async (query) => {
   const chatId = query.message.chat.id;
   
@@ -146,39 +171,51 @@ bot.on('callback_query', async (query) => {
     }
   } catch (error) {
     console.error('Erro:', error);
-    bot.sendMessage(chatId, MENSAGENS.ERRO, { parse_mode: 'Markdown' });
+    await bot.sendMessage(chatId, MENSAGENS.ERRO, { parse_mode: 'Markdown' });
   }
 });
 
+// Comando /atualizar
 bot.onText(/\/atualizar/, async (msg) => {
-  await bot.deleteMessage(msg.chat.id, msg.message_id);
-  
-  // Envia nova mensagem com layout atualizado
-  await bot.sendMessage(msg.chat.id, 
-    "🔄 *Layout atualizado com sucesso!* \nAqui está o novo visual:",
-    { parse_mode: 'Markdown' }
-  );
-  
-  // Reenvia a mensagem de boas-vindas atualizada
-  bot.sendMessage(msg.chat.id, MENSAGENS.SAUDACAO, {
-    parse_mode: 'Markdown',
-    reply_markup: MENSAGENS.BOTOES_INICIAIS.reply_markup
-  });
+  try {
+    await bot.deleteMessage(msg.chat.id, msg.message_id);
+    await bot.sendMessage(msg.chat.id, "🔄 *Layout atualizado com sucesso!*", {
+      parse_mode: 'Markdown'
+    });
+    await bot.sendMessage(msg.chat.id, MENSAGENS.SAUDACAO, {
+      parse_mode: 'Markdown',
+      reply_markup: MENSAGENS.BOTOES_INICIAIS.reply_markup
+    });
+  } catch (error) {
+    console.error('Erro no /atualizar:', error);
+  }
 });
 
 // ======================================
 // INICIALIZAÇÃO DO SERVIDOR
 // ======================================
-app.listen(PORT, () => {
+const server = app.listen(PORT, '0.0.0.0', async () => {
   console.log(`🚀 Bot iniciado na porta ${PORT}`);
   console.log(`🔧 Modo: ${process.env.NODE_ENV || 'development'}`);
   
-  // Configura botão permanente
-  bot.setChatMenuButton({
-    menu_button: {
-      type: 'web_app',
-      text: '🎰 Acessar DonaldBet',
-      web_app: { url: 'https://donald.bet.br' }
-    }
-  }).catch(console.error);
+  // Configura webhook ou polling
+  await setupWebhook();
+
+  // Configura botão permanente do menu
+  try {
+    await bot.setChatMenuButton({
+      menu_button: {
+        type: 'web_app',
+        text: '🎰 Acessar DonaldBet',
+        web_app: { url: 'https://donald.bet.br' }
+      }
+    });
+  } catch (error) {
+    console.error('Erro ao configurar menu:', error);
+  }
+
+  // Mantém a instância ativa
+  setInterval(() => {
+    server.get('/health', (_, res) => res.sendStatus(200));
+  }, 30000);
 });
