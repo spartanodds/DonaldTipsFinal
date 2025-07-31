@@ -9,26 +9,29 @@ const bot = new TelegramBot(process.env.BOT_TOKEN, {
   polling: process.env.NODE_ENV === 'development'
 });
 
-const escapeMarkdown = (text) => {
+const escapeHTML = (text) => {
   if (!text) return '';
-  return String(text).replace(/[_*\[\]()~`>#+=|{}.!-]/g, '\\$&');
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 };
 
 const MENSAGENS = {
-  SAUDACAO: `🎰 *Bem\-vindo a DonaldBet 💙 \!* 🎲\n\n` +
-    `⚽ *Sinais Esportivos Premium* \+ 🎮 *Cassino ao Vivo*\n\n` +
-    `🔹 *Sobre a DonaldBet\:*\n` +
-    `A casa de apostas mais completa do Brasil\! Oferecemos\:\n\n` +
-    `• 🎯 *Sinais Esportivos* com assertividade\n` +
-    `• 🎰 *Cassino Ao Vivo* com dealers exclusivas\n` +
-    `• 🚀 *Crash & Aviator* com multiplicadores altíssimos\n` +
-    `• ♠️ *Roleta VIP* com mesas high\-stakes\n\n` +
-    `💎 *Ofertas Exclusivas\:*\n` +
-    `\- Bônus e campanhas diárias\n` +
-    `\- Cashback diário \n` +
-    `\- Promoções semanais\n\n` +
-    `👉 *Acesse agora\:* [DonaldBet Oficial](https://donald\.bet\.br)\n\n` +
-    `*Escolha uma opção abaixo\:*`,
+  SAUDACAO: `🎰 <b>Bem-vindo a DonaldBet 💙 !</b> 🎲\n\n` +
+    `⚽ <b>Sinais Esportivos Premium</b> + 🎮 <b>Cassino ao Vivo</b>\n\n` +
+    `🔹 <b>Sobre a DonaldBet:</b>\n` +
+    `A casa de apostas mais completa do Brasil! Oferecemos:\n\n` +
+    `• 🎯 <b>Sinais Esportivos</b> com assertividade\n` +
+    `• 🎰 <b>Cassino Ao Vivo</b> com dealers exclusivas\n` +
+    `• 🚀 <b>Crash & Aviator</b> com multiplicadores altíssimos\n` +
+    `• ♠️ <b>Roleta VIP</b> com mesas high-stakes\n\n` +
+    `💎 <b>Ofertas Exclusivas:</b>\n` +
+    `- Bônus e campanhas diárias\n` +
+    `- Cashback diário\n` +
+    `- Promoções semanais\n\n` +
+    `👉 <b>Acesse agora:</b> <a href="https://donald.bet.br">DonaldBet Oficial</a>\n\n` +
+    `Escolha uma opção abaixo:`,
 
   BOTOES_INICIAIS: {
     reply_markup: {
@@ -46,7 +49,7 @@ const MENSAGENS = {
   },
 
   SELECAO_CAMPEONATO: (campeonatos) => ({
-    texto: `⚽ *SINAIS ESPORTIVOS \- ESCOLHA O CAMPEONATO* ⚽\n\nSelecione abaixo a competição que deseja receber nossas análises premium\:`,
+    texto: `⚽ <b>SINAIS ESPORTIVOS - ESCOLHA O CAMPEONATO</b> ⚽\n\nSelecione abaixo a competição que deseja receber nossas análises premium:`,
     botoes: {
       reply_markup: {
         inline_keyboard: [
@@ -64,22 +67,22 @@ const MENSAGENS = {
   }),
 
   formatarDica: (dica) => (
-    `✨ *DONALDBET SIGNAL* ✨\n\n` +
-    `🏆 *${escapeMarkdown(dica['Campeonato'])}*\n` +
-    `📅 ${escapeMarkdown(dica['Data (Brasília)'])} | ⏰ ${escapeMarkdown(dica['Hora (Brasília)'])}\n\n` +
-    `🔵 *${escapeMarkdown(dica['Time Casa'])}* vs *${escapeMarkdown(dica['Time Fora'])}*\n\n` +
-    `📊 *ANÁLISE ESTATÍSTICA*\n` +
-    `▸ Prob\. Casa\: ${escapeMarkdown(dica['Prob. Casa (%)'])}\% \| Odd\: ${escapeMarkdown(dica['Odd Casa'])}\n` +
-    `▸ Prob\. Empate\: ${escapeMarkdown(dica['Prob. Empate (%)'])}\% \| Odd\: ${escapeMarkdown(dica['Odd Empate'])}\n` +
-    `▸ Prob\. Fora\: ${escapeMarkdown(dica['Prob. Fora (%)'])}\% \| Odd\: ${escapeMarkdown(dica['Odd Fora'])}\n\n` +
-    `💎 *RECOMENDAÇÃO PREMIUM*\n` +
-    `👉 ${escapeMarkdown(dica['Aposta Sugerida'])} 👈\n\n` +
-    `🎰 *Quer mais emoção\?* Acesse nosso [Cassino Ao Vivo](https://donald\.bet\.br)\n\n` +
-    `⚠️ *Jogue com responsabilidade*\n🔞 *Apenas para maiores de 18 anos*\n\n` +
-    `🏅 *donaldbet onde todo mundo joga\!*`
+    `✨ <b>DONALDBET SIGNAL</b> ✨\n\n` +
+    `🏆 <b>${escapeHTML(dica['Campeonato'])}</b>\n` +
+    `📅 ${escapeHTML(dica['Data (Brasília)'])} | ⏰ ${escapeHTML(dica['Hora (Brasília)'])}\n\n` +
+    `🔵 <b>${escapeHTML(dica['Time Casa'])}</b> vs <b>${escapeHTML(dica['Time Fora'])}</b>\n\n` +
+    `📊 <b>ANÁLISE ESTATÍSTICA</b>\n` +
+    `▸ Prob. Casa: ${escapeHTML(dica['Prob. Casa (%)'])}% | Odd: ${escapeHTML(dica['Odd Casa'])}\n` +
+    `▸ Prob. Empate: ${escapeHTML(dica['Prob. Empate (%)'])}% | Odd: ${escapeHTML(dica['Odd Empate'])}\n` +
+    `▸ Prob. Fora: ${escapeHTML(dica['Prob. Fora (%)'])}% | Odd: ${escapeHTML(dica['Odd Fora'])}\n\n` +
+    `💎 <b>RECOMENDAÇÃO PREMIUM</b>\n` +
+    `👉 ${escapeHTML(dica['Aposta Sugerida'])} 👈\n\n` +
+    `🎰 <b>Quer mais emoção?</b> <a href="https://donald.bet.br">Cassino Ao Vivo</a>\n\n` +
+    `⚠️ <b>Jogue com responsabilidade</b>\n🔞 <b>Apenas para maiores de 18 anos</b>\n\n` +
+    `🏅 <b>DonaldBet, onde todo mundo joga!</b>`
   ),
 
-  ERRO: `❌ *Ocorreu um erro*\nNossos sistemas estão passando por manutenção\. Tente novamente mais tarde\.`
+  ERRO: `❌ <b>Ocorreu um erro</b>\nNossos sistemas estão passando por manutenção. Tente novamente mais tarde.`
 };
 
 app.use(express.json());
@@ -100,12 +103,12 @@ if (process.env.NODE_ENV === 'production') {
 bot.onText(/\/start/, async (msg) => {
   try {
     await bot.sendMessage(msg.chat.id, MENSAGENS.SAUDACAO, {
-      parse_mode: 'MarkdownV2',
+      parse_mode: 'HTML',
       disable_web_page_preview: true,
       reply_markup: MENSAGENS.BOTOES_INICIAIS.reply_markup
     });
   } catch (e) {
-    await bot.sendMessage(msg.chat.id, MENSAGENS.ERRO);
+    await bot.sendMessage(msg.chat.id, MENSAGENS.ERRO, { parse_mode: 'HTML' });
   }
 });
 
@@ -119,11 +122,11 @@ bot.on('message', async (msg) => {
     }
     const { texto, botoes } = MENSAGENS.SELECAO_CAMPEONATO(campeonatos);
     await bot.sendMessage(msg.chat.id, texto, {
-      parse_mode: 'MarkdownV2',
+      parse_mode: 'HTML',
       reply_markup: botoes.reply_markup
     });
   } catch {
-    await bot.sendMessage(msg.chat.id, MENSAGENS.ERRO);
+    await bot.sendMessage(msg.chat.id, MENSAGENS.ERRO, { parse_mode: 'HTML' });
   }
 });
 
@@ -146,7 +149,7 @@ bot.on('callback_query', async (query) => {
       await bot.editMessageText(texto, {
         chat_id: chatId,
         message_id: query.message.message_id,
-        parse_mode: 'MarkdownV2',
+        parse_mode: 'HTML',
         reply_markup: botoes.reply_markup
       });
       return;
@@ -163,7 +166,7 @@ bot.on('callback_query', async (query) => {
       const loadingMsg = await bot.sendMessage(chatId, '⏳ Preparando suas dicas...');
       for (const dica of dicas) {
         await bot.sendMessage(chatId, MENSAGENS.formatarDica(dica), {
-          parse_mode: 'MarkdownV2',
+          parse_mode: 'HTML',
           disable_web_page_preview: true
         });
       }
@@ -171,7 +174,7 @@ bot.on('callback_query', async (query) => {
     }
   } catch (error) {
     console.error('Erro no callback:', error);
-    await bot.sendMessage(chatId, MENSAGENS.ERRO);
+    await bot.sendMessage(chatId, MENSAGENS.ERRO, { parse_mode: 'HTML' });
   }
 });
 
