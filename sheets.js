@@ -3,27 +3,30 @@ const sheets = google.sheets('v4');
 
 async function getAuth() {
   try {
-    // Aceita GOOGLE_CREDENTIALS_JSON ou GOOGLE_SERVICE_KEY (backward compatibility)
-    const credentialsJson = process.env.GOOGLE_CREDENTIALS_JSON || process.env.GOOGLE_SERVICE_KEY;
-    
-    if (credentialsJson) {
-      console.log('🔑 Usando credenciais do Railway');
-      const credentials = JSON.parse(credentialsJson);
-      credentials.private_key = credentials.private_key.replace(/\\n/g, '\n'); // Corrige quebras de linha
-      
-      return new google.auth.GoogleAuth({
-        credentials,
-        scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-      });
+    if (!process.env.GOOGLE_CREDENTIALS_JSON) {
+      throw new Error('Variável GOOGLE_CREDENTIALS_JSON não definida');
     }
 
-    throw new Error('Nenhuma credencial válida encontrada (GOOGLE_CREDENTIALS_JSON ou GOOGLE_SERVICE_KEY)');
-  
+    console.log('Processando credenciais...');
+    const credentialsJson = process.env.GOOGLE_CREDENTIALS_JSON
+      .replace(/\\"/g, '"')  // Remove escapes de aspas
+      .replace(/\\n/g, '\n'); // Converte \\n para quebras reais
+
+    const credentials = JSON.parse(credentialsJson);
+    
+    return new google.auth.GoogleAuth({
+      credentials: {
+        ...credentials,
+        private_key: credentials.private_key.replace(/\\n/g, '\n')
+      },
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+
   } catch (error) {
-    console.error('🔥 ERRO NA AUTENTICAÇÃO:', {
+    console.error('🔥 ERRO CRÍTICO NA AUTENTICAÇÃO:', {
       message: error.message,
-      dica: 'Verifique se GOOGLE_CREDENTIALS_JSON está definido corretamente',
-      erroOriginal: error
+      dica: 'Verifique se o JSON está minificado corretamente',
+      stack: error.stack
     });
     throw error;
   }
