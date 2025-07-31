@@ -106,6 +106,19 @@ bot.on('callback_query', async (query) => {
   }
 });
 
+// Rota principal
+app.get('/', (req, res) => {
+  res.status(200).json({
+    status: 'online',
+    bot: 'DonaldTips',
+    version: '1.0',
+    endpoints: {
+      health: '/health',
+      webhook: `/bot${process.env.BOT_TOKEN}`
+    }
+  });
+});
+
 // Inicia o servidor
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
