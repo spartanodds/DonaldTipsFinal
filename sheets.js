@@ -41,3 +41,50 @@ async function listChampionships() {
     throw new Error('Falha ao carregar dados');
   }
 }
+
+async function getTipsByDate(campeonato) {
+  let auth;
+  try {
+    auth = await getAuth();
+    const client = await auth.getClient();
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: process.env.SHEET_ID,
+      range: 'Dados!A2:Z',
+      auth: client
+    });
+
+    const rows = response.data.values || [];
+    return rows
+      .filter(row => row[0]?.toString().trim() === campeonato)
+      .map(row => ({
+        'Campeonato': row[0],
+        'Data (Brasília)': row[1],
+        'Hora (Brasília)': row[2],
+        'Time Casa': row[3],
+        'Time Fora': row[4],
+        'Prob. Casa (%)': row[5],
+        'Odd Casa': row[6],
+        'Prob. Empate (%)': row[7],
+        'Odd Empate': row[8],
+        'Prob. Fora (%)': row[9],
+        'Odd Fora': row[10],
+        'Aposta Sugerida': row[11]
+      }));
+
+  } catch (error) {
+    console.error('Erro ao buscar dicas:', {
+      message: error.message,
+      stack: error.stack,
+      campeonato
+    });
+    throw new Error('Falha ao buscar dicas');
+  }
+}
+
+// Exportação correta de todas as funções necessárias
+module.exports = {
+  getAuth,
+  listChampionships,
+  getTipsByDate
+};
