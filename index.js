@@ -50,7 +50,7 @@ const MENSAGENS = {
     botoes: {
       reply_markup: {
         inline_keyboard: [
-          ...campeonatos.map(c => [{ text: c, callback_data: c }]),
+          ...campeonatos.map(c => [{ text: c, callback_data: `campeonato_${c}` }]),
           [
             { text: "🎰 Voltar ao Cassino", url: "https://donald.bet.br" },
             { text: "💎 Ofertas Exclusivas", url: "https://donald.bet.br" }
@@ -81,35 +81,138 @@ const MENSAGENS = {
     `🎰 Aproveite para jogar no nosso [Cassino](https://donald.bet.br) enquanto isso!`
 };
 
+// ======================================
+// CONFIGURAÇÃO DO SERVIDOR
+// ======================================
 
-// Health Check
-app.get('/health', (_, res) => res.sendStatus(200));
+// Middleware para parsear JSON
+app.use(express.json());
 
-// Configuração do Webhook
-const setupWebhook = async () => {
-  if (process.env.NODE_ENV === 'production') {
-    try {
+// Health Check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).send('OK');
+});
+
+// Webhook endpoint para produção
+if (process.env.NODE_ENV === 'production') {
+  app.post(`/bot${process.env.BOT_TOKEN}`, (req, res) => {
+    bot.processUpdate(req.body);
+    res.sendStatus(200);
+  });
+}
+
+// ======================================
+// HANDLERS DO BOT
+// ======================================
+
+// Comando /start
+bot.onText(/\/start/, async (msg) => {
+  try {
+    await bot.sendMessage(msg.chat.id, MENSAGENS.SAUDACAO, {
+      parse_mode: 'Markdown',
+      disable_web_page_preview: false,
+      reply_markup: MENSAGENS.BOTOES_INICIAIS.reply_markup
+    });
+  } catch (error) {
+    console.error('Erro no /start:', error);
+    bot.sendMessage(msg.chat.id, MENSAGENS.ERRO, { parse_mode: 'Markdown' });
+  }
+});
+
+// Handler para mensagens contendo "sinais"
+bot.on('message', async (msg) => {
+  const text = msg.text?.toLowerCase();
+  if (!text || !text.includes('sinais')) return;
+
+  try {
+    const campeonatos = await listChampionships();
+    const { texto, botoes } = MENSAGENS.SELECAO_CAMPEONATO(campeonatos);
+    
+    await bot.sendMessage(msg.chat.id, texto, {
+      parse_mode: 'Markdown',
+      reply_markup: botoes.reply_markup
+    });
+  } catch (error) {
+    console.error('Erro ao listar campeonatos:', error);
+    await bot.sendMessage(msg.chat.id, MENSAGENS.ERRO, { parse_mode: 'Markdown' });
+  }
+});
+
+// Handler para seleção de campeonato
+bot.on('callback_query', async (query) => {
+  const chatId = query.message.chat.id;
+  const data = query.data;
+
+  try {
+    await bot.answerCallbackQuery(query.id);
+    
+    if (data === 'sinais_esportivos') {
+      const campeonatos = await listChampionships();
+      const { texto, botoes } = MENSAGENS.SELECAO_CAMPEONATO(campeonatos);
+      await bot.sendMessage(chatId, texto, {
+        parse_mode: 'Markdown',
+        reply_markup: botoes.reply_markup
+      });
+      return;
+    }
+
+    if (data.startsWith('campeonato_')) {
+      const campeonato = data.replace('campeonato_', '');
+      const dicas = await getTipsByDate(campeonato);
+      
+      if (dicas.length === 0) {
+        await bot.sendMessage(chatId, 'ℹ️ Nenhuma dica disponível para este campeonato no momento.');
+        return;
+      }
+
+      for (const dica of dicas) {
+        await bot.sendMessage(chatId, MENSAGENS.DICA(dica), {
+          parse_mode: 'Markdown',
+          disable_web_page_preview: true
+        });
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+  } catch (error) {
+    console.error('Erro no callback_query:', error);
+    await bot.sendMessage(chatId, MENSAGENS.ERRO, { parse_mode: 'Markdown' });
+  }
+});
+
+// Comando /atualizar (para administradores)
+bot.onText(/\/atualizar/, async (msg) => {
+  // Verifique se o usuário é admin antes de executar
+  try {
+    await bot.deleteMessage(msg.chat.id, msg.message_id);
+    await bot.sendMessage(msg.chat.id, "🔄 *Layout atualizado com sucesso!*", {
+      parse_mode: 'Markdown'
+    });
+    await bot.sendMessage(msg.chat.id, MENSAGENS.SAUDACAO, {
+      parse_mode: 'Markdown',
+      reply_markup: MENSAGENS.BOTOES_INICIAIS.reply_markup
+    });
+  } catch (error) {
+    console.error('Erro no /atualizar:', error);
+  }
+});
+
+// ======================================
+// INICIALIZAÇÃO
+// ======================================
+
+const startServer = async () => {
+  try {
+    // Configura webhook em produção
+    if (process.env.NODE_ENV === 'production') {
       const webhookUrl = `${process.env.APP_URL}/bot${process.env.BOT_TOKEN}`;
       await bot.setWebHook(webhookUrl);
       console.log(`✅ Webhook configurado em: ${webhookUrl}`);
-    } catch (err) {
-      console.error('❌ Falha no webhook, usando polling:', err);
+    } else {
       bot.startPolling();
+      console.log('🔹 Bot rodando em modo polling (desenvolvimento)');
     }
-  }
-};
 
-// Handlers (mantidos iguais)
-bot.onText(/\/start/, async (msg) => { /* ... */ });
-bot.on('message', async (msg) => { /* ... */ });
-bot.on('callback_query', async (query) => { /* ... */ });
-
-// Inicialização
-app.listen(PORT, '0.0.0.0', async () => {
-  console.log(`🚀 Bot iniciado na porta ${PORT}`);
-  await setupWebhook();
-  
-  try {
+    // Configura menu do bot
     await bot.setChatMenuButton({
       menu_button: {
         type: 'web_app',
@@ -117,12 +220,29 @@ app.listen(PORT, '0.0.0.0', async () => {
         web_app: { url: 'https://donald.bet.br' }
       }
     });
-  } catch (error) {
-    console.error('Erro no menu:', error);
-  }
-});
 
-// Tratamento de erros
+    // Inicia servidor
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`🚀 Servidor iniciado na porta ${PORT}`);
+      console.log(`🔧 Modo: ${process.env.NODE_ENV || 'development'}`);
+    });
+
+  } catch (error) {
+    console.error('❌ Erro na inicialização:', error);
+    process.exit(1);
+  }
+};
+
+// Tratamento de erros globais
 process.on('unhandledRejection', (err) => {
   console.error('⚠️ Erro não tratado:', err);
 });
+
+process.on('SIGTERM', () => {
+  console.log('🔻 Recebido SIGTERM - Encerrando graciosamente');
+  bot.stopPolling();
+  process.exit(0);
+});
+
+// Inicia a aplicação
+startServer();
