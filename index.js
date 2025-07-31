@@ -150,6 +150,22 @@ bot.on('callback_query', async (query) => {
   }
 });
 
+bot.onText(/\/atualizar/, async (msg) => {
+  await bot.deleteMessage(msg.chat.id, msg.message_id);
+  
+  // Envia nova mensagem com layout atualizado
+  await bot.sendMessage(msg.chat.id, 
+    "🔄 *Layout atualizado com sucesso!* \nAqui está o novo visual:",
+    { parse_mode: 'Markdown' }
+  );
+  
+  // Reenvia a mensagem de boas-vindas atualizada
+  bot.sendMessage(msg.chat.id, MENSAGENS.SAUDACAO, {
+    parse_mode: 'Markdown',
+    reply_markup: MENSAGENS.BOTOES_INICIAIS.reply_markup
+  });
+});
+
 // ======================================
 // INICIALIZAÇÃO DO SERVIDOR
 // ======================================
