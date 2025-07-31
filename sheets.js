@@ -1,46 +1,48 @@
 const { google } = require('googleapis');
+require('dotenv').config();
 
-const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
-const SHEET_ID = process.env.SHEET_ID;
-
-const auth = new google.auth.JWT(
-  credentials.client_email,
-  null,
-  credentials.private_key.replace(/\\n/g, '\n'),
-  ['https://www.googleapis.com/auth/spreadsheets.readonly']
-);
+const auth = new google.auth.GoogleAuth({
+  keyFile: 'credentials.json',
+  scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+});
 
 const sheets = google.sheets({ version: 'v4', auth });
 
 async function getTipsByDate(campeonato) {
-  const hoje = new Date().toLocaleDateString('pt-BR');
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: SHEET_ID,
-    range: 'A:F',
-  });
+  try {
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: process.env.SHEET_ID,
+      range: 'A1:G100', // Ajuste conforme sua planilha
+    });
 
-  const [headers, ...rows] = res.data.values;
-  const tips = rows
-    .map((r) => Object.fromEntries(headers.map((h, i) => [h, r[i]])))
-    .filter((r) => r.Data === hoje && r.Campeonato === campeonato);
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) return [];
 
-  return tips;
+    // Filtra as dicas pelo campeonato e data atual
+    const hoje = new Date().toLocaleDateString('pt-BR');
+    return rows.filter(row => row[4] === campeonato && row[0] === hoje);
+  } catch (err) {
+    console.error('Erro ao buscar dicas:', err);
+    return [];
+  }
 }
 
 async function listChampionships() {
-  const hoje = new Date().toLocaleDateString('pt-BR');
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: SHEET_ID,
-    range: 'A:F',
-  });
+  try {
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: process.env.SHEET_ID,
+      range: 'E2:E100', // Coluna de campeonatos
+    });
 
-  const [headers, ...rows] = res.data.values;
-  const data = rows
-    .map((r) => Object.fromEntries(headers.map((h, i) => [h, r[i]])))
-    .filter((r) => r.Data === hoje);
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) return [];
 
-  const campeonatos = [...new Set(data.map((r) => r.Campeonato))];
-  return campeonatos;
+    // Remove duplicatas
+    return [...new Set(rows.map(row => row[0]))];
+  } catch (err) {
+    console.error('Erro ao listar campeonatos:', err);
+    return [];
+  }
 }
 
 module.exports = { getTipsByDate, listChampionships };
