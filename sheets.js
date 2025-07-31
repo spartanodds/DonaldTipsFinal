@@ -4,28 +4,36 @@ const sheets = google.sheets('v4');
 // Configuração robusta de autenticação
 async function getAuth() {
   try {
-    // Railway com variáveis de ambiente
-    if (process.env.RAILWAY_ENVIRONMENT) {
-      console.log('Ambiente Railway detectado');
-
-   if (process.env.GOOGLE_CREDENTIALS_JSON) {
-  console.log('Usando credenciais JSON do Railway');
-  const json = process.env.GOOGLE_CREDENTIALS_JSON;
-
-  // Corrige caso tenha sido colado em formato bruto
-  const credentials = typeof json === 'string' ? JSON.parse(json) : json;
-
-        return new google.auth.GoogleAuth({
-          credentials,
-          scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-        });
-      }
-
-      if (process.env.GOOGLE_API_KEY) {
-        console.log('Usando API Key simples');
-        return process.env.GOOGLE_API_KEY;
-      }
+    if (process.env.GOOGLE_CREDENTIALS_BASE64) {
+      console.log('🔐 Usando GOOGLE_CREDENTIALS_BASE64');
+      const jsonString = Buffer.from(process.env.GOOGLE_CREDENTIALS_BASE64, 'base64').toString('utf8');
+      const credentials = JSON.parse(jsonString);
+      return new google.auth.GoogleAuth({
+        credentials,
+        scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+      });
     }
+
+    if (process.env.GOOGLE_CREDENTIALS_JSON) {
+      console.log('🧪 Usando GOOGLE_CREDENTIALS_JSON');
+      const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON);
+      return new google.auth.GoogleAuth({
+        credentials,
+        scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+      });
+    }
+
+    console.log('🔍 Tentando credenciais locais...');
+    return new google.auth.GoogleAuth({
+      keyFile: './credentials.json',
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+
+  } catch (error) {
+    console.error('❌ Erro na autenticação:', error);
+    throw error;
+  }
+}
 
     // Desenvolvimento local
     console.log('Tentando carregar credenciais localmente');
