@@ -4,12 +4,21 @@
   "description": "Bot Telegram para envio de tips esportivas",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
-    "googleapis": "^105.0.0",
+    "googleapis": "^128.0.0",
     "node-telegram-bot-api": "^0.61.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
   }
 }
