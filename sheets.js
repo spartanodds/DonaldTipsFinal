@@ -1,22 +1,12 @@
 const { google } = require('googleapis');
 const sheets = google.sheets('v4');
 
-// Autenticação robusta com fallback
 async function getAuth() {
   try {
     if (process.env.GOOGLE_CREDENTIALS_BASE64) {
       console.log('🔐 Usando GOOGLE_CREDENTIALS_BASE64');
-      const jsonString = Buffer.from(process.env.GOOGLE_CREDENTIALS_BASE64, 'base64').toString('utf8');
-      const credentials = JSON.parse(jsonString);
-      return new google.auth.GoogleAuth({
-        credentials,
-        scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-      });
-    }
-
-    if (process.env.GOOGLE_CREDENTIALS_JSON) {
-      console.log('🧪 Usando GOOGLE_CREDENTIALS_JSON');
-      const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON);
+      const decoded = Buffer.from(process.env.GOOGLE_CREDENTIALS_BASE64, 'base64').toString('utf8');
+      const credentials = JSON.parse(decoded);
       return new google.auth.GoogleAuth({
         credentials,
         scopes: ['https://www.googleapis.com/auth/spreadsheets'],
@@ -28,14 +18,12 @@ async function getAuth() {
       keyFile: './credentials.json',
       scopes: ['https://www.googleapis.com/auth/spreadsheets'],
     });
-
   } catch (error) {
-    console.error('❌ Erro na autenticação:', error);
+    console.error('❌ Erro ao configurar autenticação:', error);
     throw error;
   }
 }
 
-// Lista os campeonatos
 async function listChampionships() {
   let auth;
   try {
@@ -47,21 +35,17 @@ async function listChampionships() {
       range: 'SpartanOdds!A2:A',
     };
 
-    if (typeof auth === 'string') {
-      request.key = auth;
-    } else {
-      request.auth = await auth.getClient();
-    }
-
+    request.auth = await auth.getClient();
     const response = await sheets.spreadsheets.values.get(request);
     const rows = response.data.values || [];
-    console.log(`Total de linhas recebidas: ${rows.length}`);
+
+    console.log(`🔢 Total de linhas recebidas: ${rows.length}`);
 
     const campeonatos = [...new Set(
       rows.map(row => row[0]?.toString().trim()).filter(Boolean)
     )];
 
-    console.log(`Campeonatos únicos encontrados: ${campeonatos.length}`);
+    console.log(`🏆 Campeonatos únicos encontrados: ${campeonatos.length}`);
     return campeonatos;
 
   } catch (error) {
@@ -76,11 +60,10 @@ async function listChampionships() {
   }
 }
 
-// Busca dicas de um campeonato
 async function getTipsByDate(campeonato) {
   let auth;
   try {
-    console.log(`Buscando dicas para: ${campeonato}`);
+    console.log(`📅 Buscando dicas para: ${campeonato}`);
     auth = await getAuth();
 
     const request = {
@@ -88,15 +71,9 @@ async function getTipsByDate(campeonato) {
       range: 'SpartanOdds!A2:L',
     };
 
-    if (typeof auth === 'string') {
-      request.key = auth;
-    } else {
-      request.auth = await auth.getClient();
-    }
-
+    request.auth = await auth.getClient();
     const response = await sheets.spreadsheets.values.get(request);
     const rows = response.data.values || [];
-    console.log(`Total de jogos encontrados: ${rows.length}`);
 
     return rows
       .filter(row => row[0]?.toString().trim() === campeonato)
