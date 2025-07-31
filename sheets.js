@@ -25,23 +25,21 @@ async function getAuth() {
       }
     }
     
-    // Método 3: Fallback para arquivo local (desenvolvimento)
-    try {
-      console.log('Tentando carregar credenciais localmente');
-      const auth = new google.auth.GoogleAuth({
-        keyFile: './credentials.json',
-        scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-      });
-      return auth;
-    } catch (localError) {
-      console.log('Não foi possível carregar credenciais locais');
-    }
-    
-    throw new Error('Nenhum método de autenticação disponível');
-    
+    // Método 3: Fallback para arquivo local (apenas desenvolvimento)
+    console.log('Tentando carregar credenciais localmente');
+    const auth = new google.auth.GoogleAuth({
+      keyFile: './credentials.json',
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+    return auth;
+
   } catch (error) {
-    console.error('Falha na configuração de autenticação:', error);
-    throw error;
+    console.error('Falha na autenticação:', {
+      message: error.message,
+      stack: error.stack,
+      envAvailable: !!process.env.GOOGLE_CREDENTIALS_JSON
+    });
+    throw new Error('Nenhum método de autenticação disponível');
   }
 }
 
@@ -72,7 +70,7 @@ async function listChampionships() {
 
     const campeonatos = [...new Set(
       rows.map(row => row[0]?.toString().trim()).filter(Boolean)
-    ];
+    )]; // Correção: parêntese faltando
     
     console.log(`Campeonatos únicos encontrados: ${campeonatos.length}`);
     return campeonatos;
