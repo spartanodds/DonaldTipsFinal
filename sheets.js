@@ -1,58 +1,91 @@
 const { google } = require('googleapis');
-require('dotenv').config();
+const sheets = google.sheets('v4');
 
+// Autenticação
 const auth = new google.auth.GoogleAuth({
-  credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS),
-  scopes: ['https://www.googleapis.com/auth/spreadsheets']
+  keyFile: process.env.GOOGLE_CREDENTIALS_PATH,
+  scopes: ['https://www.googleapis.com/auth/spreadsheets'],
 });
 
-const sheets = google.sheets({ 
-  version: 'v4', 
-  auth,
-  retryConfig: {
-    retry: 3,
-    retryDelay: 1000,
-    statusCodesToRetry: [[400, 403, 408, 429, 500, 502, 503, 504]]
-  }
-});
-
-async function getSheetData(range) {
+// Função para listar campeonatos
+async function listChampionships() {
   try {
-    const res = await sheets.spreadsheets.values.get({
+    const authClient = await auth.getClient();
+    
+    const response = await sheets.spreadsheets.values.get({
+      auth: authClient,
       spreadsheetId: process.env.SHEET_ID,
-      range: range
+      range: 'Dados!A2:A', // Ajuste para sua planilha
     });
-    return res.data.values || [];
+
+    const rows = response.data.values;
+    
+    if (!rows || rows.length === 0) {
+      console.log('Nenhum dado encontrado na planilha');
+      return [];
+    }
+
+    // Processa os dados
+    const campeonatos = rows
+      .map(row => row[0]?.toString().trim())
+      .filter(name => name && name.length > 0)
+      .filter((item, index, self) => self.indexOf(item) === index);
+
+    console.log('Campeonatos encontrados:', campeonatos);
+    return campeonatos;
+
   } catch (error) {
-    console.error('Erro na requisição à API:', error.message);
+    console.error('Erro ao acessar a planilha:', error);
     throw error;
   }
 }
 
-async function listChampionships() {
-  const data = await getSheetData('A2:A1000');
-  return [...new Set(data.map(row => row[0]).filter(Boolean))];
-}
-
+// Função para obter dicas por campeonato
 async function getTipsByDate(campeonato) {
-  const data = await getSheetData('A2:L1000');
-  const hoje = new Date().toLocaleDateString('pt-BR');
-  const headers = [
-    'Campeonato', 'Data (Brasília)', 'Hora (Brasília)', 
-    'Time Casa', 'Time Fora', 'Odd Casa', 'Odd Empate', 
-    'Odd Fora', 'Prob. Casa (%)', 'Prob. Empate (%)', 
-    'Prob. Fora (%)', 'Aposta Sugerida'
-  ];
-
-  return data
-    .filter(row => row[0] === campeonato && (!row[1] || row[1] === hoje))
-    .map(row => {
-      const dica = {};
-      headers.forEach((header, index) => {
-        dica[header] = row[index] || 'N/A';
-      });
-      return dica;
+  try {
+    const authClient = await auth.getClient();
+    
+    const response = await sheets.spreadsheets.values.get({
+      auth: authClient,
+      spreadsheetId: process.env.SHEET_ID,
+      range: 'Dados!A2:Z', // Ajuste para sua planilha
     });
+
+    const rows = response.data.values;
+    
+    if (!rows || rows.length === 0) {
+      console.log('Nenhuma dica encontrada na planilha');
+      return [];
+    }
+
+    // Filtra as dicas pelo campeonato
+    const dicas = rows
+      .filter(row => row[0]?.toString().trim() === campeonato)
+      .map(row => {
+        // Mapeia os dados conforme sua planilha
+        return {
+          'Campeonato': row[0],
+          'Data (Brasília)': row[1],
+          'Hora (Brasília)': row[2],
+          'Time Casa': row[3],
+          'Time Fora': row[4],
+          'Prob. Casa (%)': row[5],
+          'Odd Casa': row[6],
+          'Prob. Empate (%)': row[7],
+          'Odd Empate': row[8],
+          'Prob. Fora (%)': row[9],
+          'Odd Fora': row[10],
+          'Aposta Sugerida': row[11]
+        };
+      });
+
+    console.log(`Dicas encontradas para ${campeonato}:`, dicas.length);
+    return dicas;
+
+  } catch (error) {
+    console.error('Erro ao buscar dicas:', error);
+    throw error;
+  }
 }
 
-module.exports = { listChampionships, getTipsByDate };
+module.exports = { getTipsByDate, listChampionships };
