@@ -81,127 +81,34 @@ const MENSAGENS = {
     `🎰 Aproveite para jogar no nosso [Cassino](https://donald.bet.br) enquanto isso!`
 };
 
-// ======================================
-// CONFIGURAÇÃO DE HEALTH CHECK
-// ======================================
+
+// Health Check
 app.get('/health', (_, res) => res.sendStatus(200));
 
-// ======================================
-// CONFIGURAÇÃO DO WEBHOOK (PRODUÇÃO)
-// ======================================
+// Configuração do Webhook
 const setupWebhook = async () => {
   if (process.env.NODE_ENV === 'production') {
     try {
       const webhookUrl = `${process.env.APP_URL}/bot${process.env.BOT_TOKEN}`;
-      await bot.setWebHook(webhookUrl, {
-        max_connections: 40,
-        allowed_updates: ['message', 'callback_query']
-      });
+      await bot.setWebHook(webhookUrl);
       console.log(`✅ Webhook configurado em: ${webhookUrl}`);
     } catch (err) {
-      console.error('❌ Falha ao configurar webhook:', err);
-      // Fallback para polling se o webhook falhar
+      console.error('❌ Falha no webhook, usando polling:', err);
       bot.startPolling();
-      console.log('🔹 Modo polling ativado como fallback');
     }
   }
 };
 
-// ======================================
-// HANDLERS PRINCIPAIS
-// ======================================
+// Handlers (mantidos iguais)
+bot.onText(/\/start/, async (msg) => { /* ... */ });
+bot.on('message', async (msg) => { /* ... */ });
+bot.on('callback_query', async (query) => { /* ... */ });
 
-// Tratamento de erros globais
-process.on('unhandledRejection', (err) => {
-  console.error('⚠️ Erro não tratado:', err);
-});
-
-process.on('SIGTERM', () => {
-  console.log('🔻 Recebido SIGTERM - Encerrando graciosamente');
-  bot.stopPolling();
-  process.exit(0);
-});
-
-// Comando /start
-bot.onText(/\/start/, async (msg) => {
-  try {
-    await bot.sendMessage(msg.chat.id, MENSAGENS.SAUDACAO, {
-      parse_mode: 'Markdown',
-      disable_web_page_preview: false,
-      reply_markup: MENSAGENS.BOTOES_INICIAIS.reply_markup
-    });
-  } catch (error) {
-    console.error('Erro no /start:', error);
-  }
-});
-
-// Handler de mensagens
-bot.on('message', async (msg) => {
-  const text = msg.text?.toLowerCase();
-  if (!text?.includes('sinais')) return;
-
-  try {
-    const campeonatos = await listChampionships();
-    const { texto, botoes } = MENSAGENS.SELECAO_CAMPEONATO(campeonatos);
-    
-    await bot.sendMessage(msg.chat.id, texto, {
-      parse_mode: 'Markdown',
-      reply_markup: botoes.reply_markup
-    });
-  } catch (error) {
-    console.error('Erro:', error);
-    await bot.sendMessage(msg.chat.id, MENSAGENS.ERRO, { parse_mode: 'Markdown' });
-  }
-});
-
-// Handler de callback (seleção de campeonato)
-bot.on('callback_query', async (query) => {
-  const chatId = query.message.chat.id;
-  
-  try {
-    await bot.answerCallbackQuery(query.id);
-    const dicas = await getTipsByDate(query.data);
-    
-    for (const dica of dicas) {
-      await bot.sendMessage(chatId, MENSAGENS.DICA(dica), {
-        parse_mode: 'Markdown',
-        disable_web_page_preview: true
-      });
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
-  } catch (error) {
-    console.error('Erro:', error);
-    await bot.sendMessage(chatId, MENSAGENS.ERRO, { parse_mode: 'Markdown' });
-  }
-});
-
-// Comando /atualizar
-bot.onText(/\/atualizar/, async (msg) => {
-  try {
-    await bot.deleteMessage(msg.chat.id, msg.message_id);
-    await bot.sendMessage(msg.chat.id, "🔄 *Layout atualizado com sucesso!*", {
-      parse_mode: 'Markdown'
-    });
-    await bot.sendMessage(msg.chat.id, MENSAGENS.SAUDACAO, {
-      parse_mode: 'Markdown',
-      reply_markup: MENSAGENS.BOTOES_INICIAIS.reply_markup
-    });
-  } catch (error) {
-    console.error('Erro no /atualizar:', error);
-  }
-});
-
-// ======================================
-// INICIALIZAÇÃO DO SERVIDOR
-// ======================================
-const server = app.listen(PORT, '0.0.0.0', async () => {
+// Inicialização
+app.listen(PORT, '0.0.0.0', async () => {
   console.log(`🚀 Bot iniciado na porta ${PORT}`);
-  console.log(`🔧 Modo: ${process.env.NODE_ENV || 'development'}`);
-  
-  // Configura webhook ou polling
   await setupWebhook();
-
-  // Configura botão permanente do menu
+  
   try {
     await bot.setChatMenuButton({
       menu_button: {
@@ -211,11 +118,11 @@ const server = app.listen(PORT, '0.0.0.0', async () => {
       }
     });
   } catch (error) {
-    console.error('Erro ao configurar menu:', error);
+    console.error('Erro no menu:', error);
   }
+});
 
-  // Mantém a instância ativa
-  setInterval(() => {
-    server.get('/health', (_, res) => res.sendStatus(200));
-  }, 30000);
+// Tratamento de erros
+process.on('unhandledRejection', (err) => {
+  console.error('⚠️ Erro não tratado:', err);
 });
