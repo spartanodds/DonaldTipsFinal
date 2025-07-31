@@ -1,5 +1,6 @@
 const { google } = require('googleapis');
-const credentials = require('./credentials.json');
+
+const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
 const SHEET_ID = process.env.SHEET_ID;
 
 const auth = new google.auth.JWT(
