@@ -108,5 +108,21 @@ async function getTipsByDate(campeonato) {
     throw error;
   }
 }
+// Adicione no final do sheets.js
+async function testConnection() {
+  try {
+    console.log('Testando conexão com Google Sheets...');
+    const campeonatos = await listChampionships();
+    console.log('Teste bem-sucedido. Campeonatos:', campeonatos);
+    return true;
+  } catch (error) {
+    console.error('Falha no teste de conexão:', error);
+    return false;
+  }
+}
 
+// Execute o teste quando o arquivo for carregado
+testConnection().then(success => {
+  console.log(success ? '✅ Conexão OK' : '❌ Falha na conexão');
+});
 module.exports = { getTipsByDate, listChampionships };
