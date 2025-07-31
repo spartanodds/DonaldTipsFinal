@@ -1,15 +1,13 @@
 {
   "name": "donaldbet-bot",
-  "version": "1.0.1",
-  "description": "Bot de sinais esportivos e cassino para DonaldBet",
+  "version": "1.0.0",
+  "description": "Bot de sinais esportivos e cassino para DonaldBet Powered By Lucas Barbosa",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "nodemon index.js"
   },
   "dependencies": {
-    "@google-cloud/local-auth": "^2.1.0",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "googleapis": "^128.0.0",
@@ -17,8 +15,5 @@
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
-  },
-  "engines": {
-    "node": ">=18.x"
   }
 }
