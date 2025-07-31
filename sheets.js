@@ -8,9 +8,13 @@ async function getAuth() {
     if (process.env.RAILWAY_ENVIRONMENT) {
       console.log('Ambiente Railway detectado');
 
-      if (process.env.GOOGLE_CREDENTIALS_JSON) {
-        console.log('Usando credenciais JSON do Railway');
-        const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON);
+   if (process.env.GOOGLE_CREDENTIALS_JSON) {
+  console.log('Usando credenciais JSON do Railway');
+  const json = process.env.GOOGLE_CREDENTIALS_JSON;
+
+  // Corrige caso tenha sido colado em formato bruto
+  const credentials = typeof json === 'string' ? JSON.parse(json) : json;
+
         return new google.auth.GoogleAuth({
           credentials,
           scopes: ['https://www.googleapis.com/auth/spreadsheets'],
