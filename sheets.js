@@ -1,7 +1,7 @@
 const { google } = require('googleapis');
 const sheets = google.sheets('v4');
 
-// Configuração robusta de autenticação
+// Autenticação robusta com fallback
 async function getAuth() {
   try {
     if (process.env.GOOGLE_CREDENTIALS_BASE64) {
@@ -35,21 +35,7 @@ async function getAuth() {
   }
 }
 
-    // Desenvolvimento local
-    console.log('Tentando carregar credenciais localmente');
-    const auth = new google.auth.GoogleAuth({
-      keyFile: './credentials.json',
-      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-    });
-    return auth;
-
-  } catch (error) {
-    console.error('Falha na configuração de autenticação:', error);
-    throw error;
-  }
-}
-
-// Lista os campeonatos (coluna A)
+// Lista os campeonatos
 async function listChampionships() {
   let auth;
   try {
@@ -90,7 +76,7 @@ async function listChampionships() {
   }
 }
 
-// Busca as dicas de um campeonato
+// Busca dicas de um campeonato
 async function getTipsByDate(campeonato) {
   let auth;
   try {
