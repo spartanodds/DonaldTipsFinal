@@ -1,90 +1,30 @@
-const { google } = require('googleapis');
-const sheets = google.sheets('v4');
-
 async function getAuth() {
   try {
-    const auth = new google.auth.GoogleAuth({
-      credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON),
+    const creds = process.env.GOOGLE_CREDENTIALS_JSON;
+    if (!creds) throw new Error('Credenciais não encontradas');
+
+    // Debug: Verifique os primeiros caracteres
+    console.log('Credencial (início):', creds.substring(0, 50));
+
+    const credentials = JSON.parse(creds);
+    
+    // Verificação crítica da chave privada
+    if (!credentials.private_key.includes('BEGIN PRIVATE KEY')) {
+      throw new Error('Formato inválido da chave privada');
+    }
+
+    return new google.auth.GoogleAuth({
+      credentials: {
+        ...credentials,
+        private_key: credentials.private_key.replace(/\\n/g, '\n')
+      },
       scopes: ['https://www.googleapis.com/auth/spreadsheets']
     });
-    return auth;
   } catch (error) {
     console.error('Falha na autenticação:', {
       message: error.message,
       stack: error.stack
     });
-    throw new Error('Erro nas credenciais do Google');
+    throw error;
   }
 }
-
-async function listChampionships() {
-  let auth;
-  try {
-    auth = await getAuth();
-    const client = await auth.getClient();
-
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId: process.env.SHEET_ID,
-      range: 'Dados!A2:A',
-      auth: client
-    });
-
-    const rows = response.data.values || [];
-    return [...new Set(rows.map(row => row[0]?.toString().trim()).filter(Boolean))];
-    
-  } catch (error) {
-    console.error('Erro no Google Sheets:', {
-      message: error.message,
-      stack: error.stack,
-      sheetId: process.env.SHEET_ID
-    });
-    throw new Error('Falha ao carregar dados');
-  }
-}
-
-async function getTipsByDate(campeonato) {
-  let auth;
-  try {
-    auth = await getAuth();
-    const client = await auth.getClient();
-
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId: process.env.SHEET_ID,
-      range: 'Dados!A2:Z',
-      auth: client
-    });
-
-    const rows = response.data.values || [];
-    return rows
-      .filter(row => row[0]?.toString().trim() === campeonato)
-      .map(row => ({
-        'Campeonato': row[0],
-        'Data (Brasília)': row[1],
-        'Hora (Brasília)': row[2],
-        'Time Casa': row[3],
-        'Time Fora': row[4],
-        'Prob. Casa (%)': row[5],
-        'Odd Casa': row[6],
-        'Prob. Empate (%)': row[7],
-        'Odd Empate': row[8],
-        'Prob. Fora (%)': row[9],
-        'Odd Fora': row[10],
-        'Aposta Sugerida': row[11]
-      }));
-
-  } catch (error) {
-    console.error('Erro ao buscar dicas:', {
-      message: error.message,
-      stack: error.stack,
-      campeonato
-    });
-    throw new Error('Falha ao buscar dicas');
-  }
-}
-
-// Exportação correta de todas as funções necessárias
-module.exports = {
-  getAuth,
-  listChampionships,
-  getTipsByDate
-};
