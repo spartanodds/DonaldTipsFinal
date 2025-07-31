@@ -1,7 +1,6 @@
 const { google } = require('googleapis');
 require('dotenv').config();
 
-// Configuração de autenticação
 const auth = new google.auth.GoogleAuth({
   credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS),
   scopes: ['https://www.googleapis.com/auth/spreadsheets']
@@ -17,7 +16,6 @@ const sheets = google.sheets({
   }
 });
 
-// Função para buscar dados da planilha
 async function getSheetData(range) {
   try {
     const res = await sheets.spreadsheets.values.get({
@@ -26,51 +24,35 @@ async function getSheetData(range) {
     });
     return res.data.values || [];
   } catch (error) {
-    console.error('Erro na requisição à API:', {
-      range: range,
-      error: error.message
-    });
-    throw new Error('Erro ao acessar a planilha');
+    console.error('Erro na requisição à API:', error.message);
+    throw error;
   }
 }
 
-// Lista de campeonatos únicos
 async function listChampionships() {
-  try {
-    const data = await getSheetData('A2:L1000');
-    const campeonatos = data.map(row => row[0]).filter(Boolean);
-    return [...new Set(campeonatos)]; // Remove duplicatas
-  } catch (error) {
-    console.error('Erro ao listar campeonatos:', error);
-    throw new Error('Erro ao buscar lista de campeonatos');
-  }
+  const data = await getSheetData('A2:A1000');
+  return [...new Set(data.map(row => row[0]).filter(Boolean))];
 }
 
-// Busca dicas por campeonato
 async function getTipsByDate(campeonato) {
-  try {
-    const data = await getSheetData('A2:L1000');
-    const hoje = new Date().toLocaleDateString('pt-BR');
-    const headers = [
-      'Campeonato', 'Data (Brasília)', 'Hora (Brasília)', 
-      'Time Casa', 'Time Fora', 'Odd Casa', 'Odd Empate', 
-      'Odd Fora', 'Prob. Casa (%)', 'Prob. Empate (%)', 
-      'Prob. Fora (%)', 'Aposta Sugerida'
-    ];
+  const data = await getSheetData('A2:L1000');
+  const hoje = new Date().toLocaleDateString('pt-BR');
+  const headers = [
+    'Campeonato', 'Data (Brasília)', 'Hora (Brasília)', 
+    'Time Casa', 'Time Fora', 'Odd Casa', 'Odd Empate', 
+    'Odd Fora', 'Prob. Casa (%)', 'Prob. Empate (%)', 
+    'Prob. Fora (%)', 'Aposta Sugerida'
+  ];
 
-    return data
-      .filter(row => row[0] === campeonato && (!row[1] || row[1] === hoje))
-      .map(row => {
-        const dica = {};
-        headers.forEach((header, index) => {
-          dica[header] = row[index] || 'N/A';
-        });
-        return dica;
+  return data
+    .filter(row => row[0] === campeonato && (!row[1] || row[1] === hoje))
+    .map(row => {
+      const dica = {};
+      headers.forEach((header, index) => {
+        dica[header] = row[index] || 'N/A';
       });
-  } catch (error) {
-    console.error('Erro ao buscar dicas:', error);
-    throw new Error('Erro ao carregar dicas do campeonato');
-  }
+      return dica;
+    });
 }
 
 module.exports = { listChampionships, getTipsByDate };
