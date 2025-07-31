@@ -37,7 +37,7 @@ const escapeMarkdown = (text) => {
 // CONFIGURAÇÃO DE MENSAGENS DONALDBET
 // ======================================
 const MENSAGENS = {
-  SAUDACAO: `🎰 *Bem\\-vindo a DonaldBet 💙 \\!* 🎲\n\n` +
+  SAUDACAO: `🎰 *Bem\\-vindo a donaldbet signals \\!* 🎲\n\n` +
     `⚽ *Sinais Esportivos Premium* \\+ 🎮 *Cassino ao Vivo*\n\n` +
     `🔹 *Sobre a DonaldBet\\:*\n` +
     `A casa de apostas mais completa do Brasil\\! Oferecemos\\:\n\n` +
@@ -67,27 +67,30 @@ const MENSAGENS = {
     }
   },
 
-  SELECAO_CAMPEONATO: (campeonatos) => ({
-    texto: `⚽ *SINAIS ESPORTIVOS \\- ESCOLHA O CAMPEONATO* ⚽\n\n` +
-      `Selecione abaixo a competição que deseja receber nossas análises premium\\:`,
-    
-    botoes: {
-      reply_markup: {
-        inline_keyboard: [
-          ...campeonatos.map(c => [{ 
-            text: c, 
-            callback_data: `campeonato_${c.replace(/[^a-zA-Z0-9]/g, '_')}` 
-          }]),
-          [
-            { text: "🎰 Voltar ao Cassino", url: "https://donald.bet.br" },
-            { text: "💎 Ofertas Exclusivas", url: "https://donald.bet.br" }
+  SELECAO_CAMPEONATO: (campeonatos) => {
+    console.log('Campeonatos recebidos para botões:', campeonatos); // Debug
+    return {
+      texto: `⚽ *SINAIS ESPORTIVOS \\- ESCOLHA O CAMPEONATO* ⚽\n\n` +
+        `Selecione abaixo a competição que deseja receber nossas análises premium\\:`,
+      botoes: {
+        reply_markup: {
+          inline_keyboard: [
+            ...campeonatos.map(c => [{ 
+              text: c, 
+              callback_data: `campeonato_${c.replace(/[^a-zA-Z0-9]/g, '_')}` 
+            }]),
+            [
+              { text: "🎰 Voltar ao Cassino", url: "https://donald.bet.br" },
+              { text: "💎 Ofertas Exclusivas", url: "https://donald.bet.br" }
+            ]
           ]
-        ]
+        }
       }
-    }
-  }),
+    };
+  },
 
   formatarDica: (dica) => {
+    console.log('Formatando dica:', dica); // Debug
     return `✨ *DONALDBET SIGNAL* ✨\n\n` +
       `🏆 *${escapeMarkdown(dica['Campeonato'])}*\n` +
       `📅 ${escapeMarkdown(dica['Data (Brasília)'])} \\| ⏰ ${escapeMarkdown(dica['Hora (Brasília)'])}\n\n` +
@@ -143,7 +146,7 @@ bot.onText(/\/start/, async (msg) => {
     });
   } catch (error) {
     console.error('Erro no /start:', error);
-    await bot.sendMessage(msg.chat.id, "Bem-vindo a DonaldBet! Escolha uma opção:", {
+    await bot.sendMessage(msg.chat.id, "Bem-vindo ao DonaldBet! Escolha uma opção:", {
       reply_markup: MENSAGENS.BOTOES_INICIAIS.reply_markup
     });
   }
@@ -154,9 +157,16 @@ bot.on('message', async (msg) => {
   if (!msg.text?.toLowerCase().includes('sinais')) return;
   
   try {
+    console.log('Iniciando busca por campeonatos...');
     const campeonatos = await listChampionships();
-    const { texto, botoes } = MENSAGENS.SELECAO_CAMPEONATO(campeonatos);
+    console.log('Campeonatos retornados:', campeonatos);
     
+    if (!campeonatos || campeonatos.length === 0) {
+      await bot.sendMessage(msg.chat.id, 'ℹ️ Não encontramos campeonatos ativos no momento. Por favor, tente mais tarde.');
+      return;
+    }
+    
+    const { texto, botoes } = MENSAGENS.SELECAO_CAMPEONATO(campeonatos);
     await bot.sendMessage(msg.chat.id, texto, {
       parse_mode: 'MarkdownV2',
       reply_markup: botoes.reply_markup
@@ -176,56 +186,80 @@ bot.on('callback_query', async (query) => {
   const messageId = query.message.message_id;
   const data = query.data;
 
+  console.log('Callback recebido:', data);
+
   try {
     await bot.answerCallbackQuery(query.id);
     
     if (data === 'sinais_esportivos') {
-      const campeonatos = await listChampionships();
-      const { texto, botoes } = MENSAGENS.SELECAO_CAMPEONATO(campeonatos);
-      await bot.editMessageText(texto, {
-        chat_id: chatId,
-        message_id: messageId,
-        parse_mode: 'MarkdownV2',
-        reply_markup: botoes.reply_markup
-      });
+      try {
+        console.log('Buscando campeonatos...');
+        const campeonatos = await listChampionships();
+        console.log('Campeonatos encontrados:', campeonatos);
+        
+        if (!campeonatos || campeonatos.length === 0) {
+          console.log('Nenhum campeonato disponível');
+          await bot.sendMessage(chatId, 'ℹ️ Não há campeonatos disponíveis no momento. Por favor, verifique mais tarde.');
+          return;
+        }
+        
+        const { texto, botoes } = MENSAGENS.SELECAO_CAMPEONATO(campeonatos);
+        await bot.editMessageText(texto, {
+          chat_id: chatId,
+          message_id: messageId,
+          parse_mode: 'MarkdownV2',
+          reply_markup: botoes.reply_markup
+        });
+      } catch (error) {
+        console.error('Erro ao buscar campeonatos:', error);
+        await bot.sendMessage(chatId, '⚠️ Erro ao carregar os campeonatos. Tente novamente mais tarde.');
+      }
       return;
     }
 
     if (data.startsWith('campeonato_')) {
       const campeonato = data.replace('campeonato_', '').replace(/_/g, ' ');
-      const dicas = await getTipsByDate(campeonato);
+      console.log('Campeonato selecionado:', campeonato);
       
-      if (!dicas || dicas.length === 0) {
-        await bot.sendMessage(chatId, 'ℹ️ Nenhuma dica disponível para este campeonato no momento.');
-        return;
-      }
-
-      const loadingMsg = await bot.sendMessage(chatId, '⏳ Buscando as melhores dicas...');
-
-      for (const dica of dicas) {
-        try {
-          await bot.sendMessage(
-            chatId, 
-            MENSAGENS.formatarDica(dica), 
-            {
-              parse_mode: 'MarkdownV2',
-              disable_web_page_preview: true
-            }
-          );
-          await new Promise(resolve => setTimeout(resolve, 300));
-        } catch (error) {
-          console.error('Erro ao enviar dica:', error);
-          await bot.sendMessage(
-            chatId,
-            `🏆 ${dica['Campeonato']}\n` +
-            `📅 ${dica['Data (Brasília)']} | ⏰ ${dica['Hora (Brasília)']}\n\n` +
-            `🔵 ${dica['Time Casa']} vs ${dica['Time Fora']}\n\n` +
-            `💎 Recomendação: ${dica['Aposta Sugerida']}`
-          );
+      try {
+        const dicas = await getTipsByDate(campeonato);
+        console.log('Dicas encontradas:', dicas);
+        
+        if (!dicas || dicas.length === 0) {
+          await bot.sendMessage(chatId, `ℹ️ Não encontramos dicas para ${campeonato} no momento.`);
+          return;
         }
-      }
 
-      await bot.deleteMessage(chatId, loadingMsg.message_id);
+        const loadingMsg = await bot.sendMessage(chatId, '⏳ Preparando suas dicas...');
+        
+        for (const dica of dicas) {
+          try {
+            await bot.sendMessage(
+              chatId, 
+              MENSAGENS.formatarDica(dica), 
+              {
+                parse_mode: 'MarkdownV2',
+                disable_web_page_preview: true
+              }
+            );
+            await new Promise(resolve => setTimeout(resolve, 300));
+          } catch (error) {
+            console.error('Erro ao enviar dica:', error);
+            await bot.sendMessage(
+              chatId,
+              `🏆 ${dica['Campeonato']}\n` +
+              `📅 ${dica['Data (Brasília)']} | ⏰ ${dica['Hora (Brasília)']}\n\n` +
+              `🔵 ${dica['Time Casa']} vs ${dica['Time Fora']}\n\n` +
+              `💎 Recomendação: ${dica['Aposta Sugerida']}`
+            );
+          }
+        }
+
+        await bot.deleteMessage(chatId, loadingMsg.message_id);
+      } catch (error) {
+        console.error('Erro ao buscar dicas:', error);
+        await bot.sendMessage(chatId, '⚠️ Erro ao carregar as dicas. Por favor, tente novamente.');
+      }
     }
   } catch (error) {
     console.error('Erro no callback_query:', {
