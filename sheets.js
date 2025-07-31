@@ -46,7 +46,7 @@ async function listChampionships() {
 
     const request = {
       spreadsheetId: process.env.SHEET_ID,
-      range: 'Dados!A2:A',
+      range: 'SpartanOdds!A2:A',
     };
 
     if (typeof auth === 'string') {
@@ -87,7 +87,7 @@ async function getTipsByDate(campeonato) {
 
     const request = {
       spreadsheetId: process.env.SHEET_ID,
-      range: 'Dados!A2:L',
+      range: 'SpartanOdds!A2:L',
     };
 
     if (typeof auth === 'string') {
