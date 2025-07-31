@@ -37,7 +37,7 @@ const escapeMarkdown = (text) => {
 // CONFIGURAÇÃO DE MENSAGENS DONALDBET
 // ======================================
 const MENSAGENS = {
-  SAUDACAO: `🎰 *Bem\\-vindo a donaldbet signals \\!* 🎲\n\n` +
+  SAUDACAO: `🎰 *Bem\\-vindo a DonaldBet 💙 \\!* 🎲\n\n` +
     `⚽ *Sinais Esportivos Premium* \\+ 🎮 *Cassino ao Vivo*\n\n` +
     `🔹 *Sobre a DonaldBet\\:*\n` +
     `A casa de apostas mais completa do Brasil\\! Oferecemos\\:\n\n` +
