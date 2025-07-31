@@ -1,26 +1,49 @@
 const { google } = require('googleapis');
 const sheets = google.sheets('v4');
 
-// Configuração de autenticação
-const auth = new google.auth.GoogleAuth({
-  credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT),
-  scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-});
+// Método 1: Autenticação com Service Account (recomendado para produção)
+function getAuth() {
+  try {
+    // Verifica se temos credenciais no .env
+    if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
+      const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
+      return new google.auth.GoogleAuth({
+        credentials,
+        scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+      });
+    }
+    // Método 2: Fallback para API Key (menos seguro, mas mais simples)
+    else if (process.env.GOOGLE_API_KEY) {
+      return process.env.GOOGLE_API_KEY;
+    }
+    throw new Error('Nenhum método de autenticação configurado');
+  } catch (error) {
+    console.error('Erro na configuração de autenticação:', error);
+    throw error;
+  }
+}
 
 async function listChampionships() {
   try {
     console.log('Iniciando autenticação...');
-    const authClient = await auth.getClient();
+    const auth = getAuth();
     
-    console.log('Acessando planilha...');
-    const response = await sheets.spreadsheets.values.get({
-      auth: authClient,
+    console.log('Acessando planilha... ID:', process.env.SHEET_ID);
+    const request = {
       spreadsheetId: process.env.SHEET_ID,
       range: 'Dados!A2:A',
-    });
+    };
 
+    // Se for API Key, adiciona diretamente
+    if (typeof auth === 'string') {
+      request.key = auth;
+    } else {
+      request.auth = await auth.getClient();
+    }
+
+    const response = await sheets.spreadsheets.values.get(request);
     const rows = response.data.values || [];
-    console.log(`Encontradas ${rows.length} linhas na planilha`);
+    console.log(`Total de linhas encontradas: ${rows.length}`);
 
     const campeonatos = [...new Set(
       rows.map(row => row[0]?.toString().trim()).filter(Boolean)
@@ -30,7 +53,7 @@ async function listChampionships() {
     return campeonatos;
 
   } catch (error) {
-    console.error('Erro detalhado:', {
+    console.error('Erro detalhado ao listar campeonatos:', {
       message: error.message,
       stack: error.stack,
       response: error.response?.data
@@ -41,16 +64,23 @@ async function listChampionships() {
 
 async function getTipsByDate(campeonato) {
   try {
-    const authClient = await auth.getClient();
+    console.log(`Buscando dicas para: ${campeonato}`);
+    const auth = getAuth();
     
-    const response = await sheets.spreadsheets.values.get({
-      auth: authClient,
+    const request = {
       spreadsheetId: process.env.SHEET_ID,
       range: 'Dados!A2:Z',
-    });
+    };
 
+    if (typeof auth === 'string') {
+      request.key = auth;
+    } else {
+      request.auth = await auth.getClient();
+    }
+
+    const response = await sheets.spreadsheets.values.get(request);
     const rows = response.data.values || [];
-    console.log(`Buscando dicas para: ${campeonato}`);
+    console.log(`Total de jogos encontrados: ${rows.length}`);
 
     return rows
       .filter(row => row[0]?.toString().trim() === campeonato)
@@ -70,7 +100,11 @@ async function getTipsByDate(campeonato) {
       }));
 
   } catch (error) {
-    console.error('Erro ao buscar dicas:', error);
+    console.error('Erro detalhado ao buscar dicas:', {
+      message: error.message,
+      stack: error.stack,
+      response: error.response?.data
+    });
     throw error;
   }
 }
