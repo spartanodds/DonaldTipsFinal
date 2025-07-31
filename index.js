@@ -64,6 +64,15 @@ app.get('/', (req, res) => {
   });
 });
 
+// Bloqueia acesso GET ao webhook
+app.get(`/bot${process.env.BOT_TOKEN}`, (req, res) => {
+  console.warn('⚠️ Tentativa de acesso GET ao webhook');
+  res.status(405).json({ 
+    error: 'Método não permitido',
+    message: 'Esta rota só aceita requisições POST'
+  });
+});
+
 // Handlers do Bot
 bot.onText(/\/start/, (msg) => {
   const welcomeMessage = `👋 Bem-vindo ao DonaldTips!\n\n`
