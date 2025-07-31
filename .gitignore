@@ -1,9 +1,2 @@
-# Credenciais
-credentials.json
 .env
-
-# Logs
-*.log
-
-# Node
-node_modules/
+Google_credentials.json
